@@ -151,49 +151,39 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
         )
         prompt_result = client.endpoints.query(prompt_request)
 
-        # Check if the prompt_result is successful and contains content
-        if prompt_result.status_code == 200 and prompt_result.content:
-            # Step 2: Send the result to the image-creator endpoint
-            image_creator_request = OrquestaEndpointRequest(
-                key="image-creator",
-                variables={"prompt": prompt_result.content}
-            )
-            image_creator_result = client.endpoints.query(image_creator_request)
+        # Step 2: Send the result to the image-creator endpoint
+        image_creator_request = OrquestaEndpointRequest(
+            key="image-creator",
+            variables={"prompt": prompt_result.content}
+        )
+        image_creator_result = client.endpoints.query(image_creator_request)
 
-            # Check if the image_creator_result is successful and contains an image URL
-            if image_creator_result.status_code == 200 and image_creator_result.content:
-                # Send the image to Slack as an attachment
-                slack_client.token = os.getenv("SLACK_BOT_TOKEN")
-                slack_client.chat_postMessage(
-                    channel=channel_id,
-                    thread_ts=ts,
-                    blocks=[
-                        {
-                            "type": "image",
-                            "title": {
-                                "type": "plain_text",
-                                "text": "Generated Image"
-                            },
-                            "image_url": image_creator_result.content,
-                            "alt_text": "Generated image"
-                        }
-                    ]
-                )
-                return  # End the function after sending the image
-            else:
-                # Handle the case where the image_creator_result is not successful
-                slack_client.chat_postMessage(
-                    channel=channel_id,
-                    thread_ts=ts,
-                    text="Failed to create image. Please try again."
-                )
-                return  # End the function after sending the error message
-        else:
-            # Handle the case where the prompt_result is not successful
+        # Check if the image_creator_result is successful and contains an image URL
+        if image_creator_result.content:
+            # Send the image to Slack as an attachment
+            slack_client.token = os.getenv("SLACK_BOT_TOKEN")
             slack_client.chat_postMessage(
                 channel=channel_id,
                 thread_ts=ts,
-                text="Failed to generate image prompt. Please try again."
+                blocks=[
+                    {
+                        "type": "image",
+                        "title": {
+                            "type": "plain_text",
+                            "text": "Generated Image"
+                        },
+                        "image_url": image_creator_result.content,
+                        "alt_text": "Generated image"
+                    }
+                ]
+            )
+            return  # End the function after sending the image
+        else:
+            # Handle the case where the image_creator_result is not successful
+            slack_client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=ts,
+                text="Failed to create image. Please try again."
             )
             return  # End the function after sending the error message
 
