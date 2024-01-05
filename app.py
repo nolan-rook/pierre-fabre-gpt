@@ -79,13 +79,14 @@ def slack_commands():
     user_id = data.get('user_id')
     channel_id = data.get('channel_id')
     print(command_text, response_url, user_id, channel_id)
+
     # Send an immediate response to acknowledge the command
     # This is optional and can be an empty 200 OK if you plan to use response_url
     immediate_response = "Processing your Orquesta query..."
-    threading.Thread(target=execute_orquesta_command, args=(command_text, response_url, user_id, channel_id)).start()
+    threading.Thread(target=execute_orquesta_command, args=(command_text, response_url, user_id, channel_id, data.get('ts'))).start()
     return jsonify({'text': immediate_response}), 200
 
-def execute_orquesta_command(command_text, response_url, user_id, channel_id):
+def execute_orquesta_command(command_text, response_url, user_id, channel_id, ts):
     # Here you would interact with the Orquesta API using the command_text
     # For example, you might query an endpoint and wait for the result
     # Then, use the response_url to send the result back to Slack
@@ -99,11 +100,11 @@ def execute_orquesta_command(command_text, response_url, user_id, channel_id):
     # Query the OrquestaClient for a response
     result = client.endpoints.query(orquesta_request)
 
-    # Use the response_url to send the result back to Slack via thread
+    # Use the response_url to send the result back to Slack
     slack_client.token = os.getenv("SLACK_BOT_TOKEN")
     slack_client.chat_postMessage(
         channel=channel_id,
-        thread_ts=event['ts'],  # Ensure this is the original message timestamp
+        thread_ts=ts,  # Use the timestamp from the Slash Command request
         text=result.content
     )
 
