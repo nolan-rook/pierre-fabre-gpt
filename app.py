@@ -141,9 +141,61 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
                 text="Usage: /mail [to] [from] [content in bulletpoints]"
             )
             return
+    # Special handling for image-creator-prompt
     elif orquesta_key == "image-creator-prompt":
+        # Step 1: Query the image-creator-prompt endpoint
         goal_of_image = command_text
-        variables = {"goal_of_image": goal_of_image}
+        prompt_request = OrquestaEndpointRequest(
+            key="image-creator-prompt",
+            variables={"goal_of_image": goal_of_image}
+        )
+        prompt_result = client.endpoints.query(prompt_request)
+
+        # Check if the prompt_result is successful and contains content
+        if prompt_result.is_successful and prompt_result.content:
+            # Step 2: Send the result to the image-creator endpoint
+            image_creator_request = OrquestaEndpointRequest(
+                key="image-creator",
+                variables={"prompt": prompt_result.content}
+            )
+            image_creator_result = client.endpoints.query(image_creator_request)
+
+            # Check if the image_creator_result is successful and contains an image URL
+            if image_creator_result.is_successful and image_creator_result.content:
+                # Send the image to Slack as an attachment
+                slack_client.token = os.getenv("SLACK_BOT_TOKEN")
+                slack_client.chat_postMessage(
+                    channel=channel_id,
+                    thread_ts=ts,
+                    blocks=[
+                        {
+                            "type": "image",
+                            "title": {
+                                "type": "plain_text",
+                                "text": "Generated Image"
+                            },
+                            "image_url": image_creator_result.content,
+                            "alt_text": "Generated image"
+                        }
+                    ]
+                )
+                return  # End the function after sending the image
+            else:
+                # Handle the case where the image_creator_result is not successful
+                slack_client.chat_postMessage(
+                    channel=channel_id,
+                    thread_ts=ts,
+                    text="Failed to create image. Please try again."
+                )
+                return  # End the function after sending the error message
+        else:
+            # Handle the case where the prompt_result is not successful
+            slack_client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=ts,
+                text="Failed to generate image prompt. Please try again."
+            )
+            return  # End the function after sending the error message
 
     # Create an OrquestaEndpointRequest object with the specific variables for the command
     orquesta_request = OrquestaEndpointRequest(
