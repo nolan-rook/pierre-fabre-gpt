@@ -127,8 +127,7 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
             )
             return
     elif orquesta_key == "content-to-persona-creator":
-        content = command_text
-        variables = {"content": content}
+        variables = {"content": command_text}
     elif orquesta_key == "mail-creator":
         try:
             to, from_user, content = command_text.split(' ', 2)
@@ -140,57 +139,76 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
                 text="Usage: /mail [to] [from] [content in bulletpoints]"
             )
             return
-    # Special handling for image-creator-prompt
     elif orquesta_key == "image-creator-prompt":
-        # Step 1: Query the image-creator-prompt endpoint
-        goal_of_image = command_text
-        prompt_request = OrquestaEndpointRequest(
+        # Step 1: Invoke the image-creator-prompt deployment
+        prompt_deployment = client.deployments.invoke(
             key="image-creator-prompt",
-            variables={"goal_of_image": goal_of_image}
+            inputs={"goal_of_image": command_text}
         )
-        prompt_result = client.endpoints.query(prompt_request)
 
-        # Step 2: Send the result to the image-creator endpoint
-        image_creator_request = OrquestaEndpointRequest(
-            key="image-creator",
-            variables={"prompt": prompt_result.content}
+        # Check if the prompt deployment has choices and a message
+        if prompt_deployment.choices and prompt_deployment.choices[0].message:
+            # Step 2: Invoke the image-creator deployment with the result from the first prompt
+            image_deployment = client.deployments.invoke(
+                key="image-creator",
+                inputs={"prompt": prompt_deployment.choices[0].message.content}
+            )
+
+            # Check if the image deployment has choices and a message
+            if image_deployment.choices and image_deployment.choices[0].message:
+                # Send the image URL to Slack
+                slack_client.chat_postMessage(
+                    channel=channel_id,
+                    thread_ts=ts,
+                    blocks=[
+                        {
+                            "type": "image",
+                            "title": {
+                                "type": "plain_text",
+                                "text": "Generated Image"
+                            },
+                            "image_url": image_deployment.choices[0].message.content,
+                            "alt_text": "Generated image"
+                        }
+                    ]
+                )
+            else:
+                # Handle the case where there is no message in the choices for the image deployment
+                slack_client.chat_postMessage(
+                    channel=channel_id,
+                    thread_ts=ts,
+                    text="There was an error processing your image request."
+                )
+        else:
+            # Handle the case where there is no message in the choices for the prompt deployment
+            slack_client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=ts,
+                text="There was an error processing your prompt request."
+            )
+        return  # End the function after handling the image creation
+    else:
+        # Invoke the Orquesta deployment for other commands
+        deployment = client.deployments.invoke(
+            key=orquesta_key,
+            inputs=variables
         )
-        image_creator_result = client.endpoints.query(image_creator_request)
 
-        slack_client.token = os.getenv("SLACK_BOT_TOKEN")
-        slack_client.chat_postMessage(
-            channel=channel_id,
-            thread_ts=ts,
-            blocks=[
-                {
-                    "type": "image",
-                    "title": {
-                        "type": "plain_text",
-                        "text": "Generated Image"
-                    },
-                    "image_url": image_creator_result.content,
-                    "alt_text": "Generated image"
-                }
-            ]
-        )
-        return  # End the function after sending the image
-
-    # Create an OrquestaEndpointRequest object with the specific variables for the command
-    orquesta_request = OrquestaEndpointRequest(
-        key=orquesta_key,
-        variables=variables
-    )
-
-    # Query the OrquestaClient for a response
-    result = client.endpoints.query(orquesta_request)
-
-    # Use the response_url to send the result back to Slack
-    slack_client.token = os.getenv("SLACK_BOT_TOKEN")
-    slack_client.chat_postMessage(
-        channel=channel_id,
-        thread_ts=ts,  # Use the timestamp from the Slash Command request
-        text=result.content
-    )
+        # Check if the deployment has choices and a message
+        if deployment.choices and deployment.choices[0].message:
+            # Use the response_url to send the result back to Slack
+            slack_client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=ts,
+                text=deployment.choices[0].message.content
+            )
+        else:
+            # Handle the case where there is no message in the choices
+            slack_client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=ts,
+                text="There was an error processing your request."
+            )
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
