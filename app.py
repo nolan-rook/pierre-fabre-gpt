@@ -153,7 +153,7 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
                 key="image-creator",
                 inputs={"prompt": prompt_deployment.choices[0].message.content}
             )
-            print(deployment.choices[0].message)
+            print(image_deployment.choices[0].message)
             # Send the image URL to Slack
             slack_client.chat_postMessage(
                 channel=channel_id,
