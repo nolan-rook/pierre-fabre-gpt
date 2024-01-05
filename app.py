@@ -153,32 +153,23 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
                 key="image-creator",
                 inputs={"prompt": prompt_deployment.choices[0].message.content}
             )
-
-            # Check if the image deployment has choices and a message
-            if image_deployment.choices and image_deployment.choices[0].message:
-                # Send the image URL to Slack
-                slack_client.chat_postMessage(
-                    channel=channel_id,
-                    thread_ts=ts,
-                    blocks=[
-                        {
-                            "type": "image",
-                            "title": {
-                                "type": "plain_text",
-                                "text": "Generated Image"
-                            },
-                            "image_url": image_deployment.choices[0].message.content,
-                            "alt_text": "Generated image"
-                        }
-                    ]
-                )
-            else:
-                # Handle the case where there is no message in the choices for the image deployment
-                slack_client.chat_postMessage(
-                    channel=channel_id,
-                    thread_ts=ts,
-                    text="There was an error processing your image request."
-                )
+            print(deployment.choices[0].message)
+            # Send the image URL to Slack
+            slack_client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=ts,
+                blocks=[
+                    {
+                        "type": "image",
+                        "title": {
+                            "type": "plain_text",
+                            "text": "Generated Image"
+                        },
+                        "image_url": image_deployment.choices[0].message.content,
+                        "alt_text": "Generated image"
+                    }
+                ]
+            )
         else:
             # Handle the case where there is no message in the choices for the prompt deployment
             slack_client.chat_postMessage(
