@@ -152,7 +152,7 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
         prompt_result = client.endpoints.query(prompt_request)
 
         # Check if the prompt_result is successful and contains content
-        if prompt_result.is_successful and prompt_result.content:
+        if prompt_result.status_code == 200 and prompt_result.content:
             # Step 2: Send the result to the image-creator endpoint
             image_creator_request = OrquestaEndpointRequest(
                 key="image-creator",
@@ -161,7 +161,7 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
             image_creator_result = client.endpoints.query(image_creator_request)
 
             # Check if the image_creator_result is successful and contains an image URL
-            if image_creator_result.is_successful and image_creator_result.content:
+            if image_creator_result.status_code == 200 and image_creator_result.content:
                 # Send the image to Slack as an attachment
                 slack_client.token = os.getenv("SLACK_BOT_TOKEN")
                 slack_client.chat_postMessage(
