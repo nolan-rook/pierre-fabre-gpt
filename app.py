@@ -68,45 +68,15 @@ def query_orquesta(event, prompt_user):
         text=result.content
     )
 
-# Route for handling Slash Commands
 @app.route('/slack/commands', methods=['POST'])
 def slack_commands():
-    data = request.form  # Slack sends command data as form-encoded
+    # Your request verification logic here
 
-    # Extract the command text and other relevant information
-    command_text = data.get('text')
-    response_url = data.get('response_url')
-    user_id = data.get('user_id')
-    channel_id = data.get('channel_id')
-    print(command_text, response_url, user_id, channel_id)
-
-    # Send an immediate response to acknowledge the command
-    # This is optional and can be an empty 200 OK if you plan to use response_url
-    immediate_response = "Processing your Orquesta query..."
-    threading.Thread(target=execute_orquesta_command, args=(command_text, response_url, user_id, channel_id, data.get('ts'))).start()
-    return jsonify({'text': immediate_response}), 200
-
-def execute_orquesta_command(command_text, response_url, user_id, channel_id, ts):
-    # Here you would interact with the Orquesta API using the command_text
-    # For example, you might query an endpoint and wait for the result
-    # Then, use the response_url to send the result back to Slack
-
-    # Create an OrquestaEndpointRequest object
-    orquesta_request = OrquestaEndpointRequest(
-        key="pierre-slack-app",
-        variables={"prompt": command_text}
-    )
-
-    # Query the OrquestaClient for a response
-    result = client.endpoints.query(orquesta_request)
-
-    # Use the response_url to send the result back to Slack
-    slack_client.token = os.getenv("SLACK_BOT_TOKEN")
-    slack_client.chat_postMessage(
-        channel=channel_id,
-        thread_ts=ts,  # Use the timestamp from the Slash Command request
-        text=result.content
-    )
+    # Respond immediately to avoid "dispatch_failed" error
+    return jsonify({
+        "response_type": "in_channel",  # or "ephemeral" for a private response
+        "text": "Processing your request..."
+    }), 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
