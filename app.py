@@ -153,8 +153,6 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
                 key="image-creator",
                 inputs={"prompt": prompt_deployment.choices[0].message.content}
             )
-            # Print the attributes of the message object to find the correct one
-            print(image_deployment.choices[0].message.__dict__)
 
             # Assuming the correct attribute is 'url' instead of 'content'
             image_url = image_deployment.choices[0].message.url  # Adjust this line based on the output
