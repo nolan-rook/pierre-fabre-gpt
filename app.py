@@ -3,7 +3,6 @@ import threading
 from flask import Flask, request, jsonify
 from orquesta_sdk import Orquesta, OrquestaClientOptions
 from slack_sdk import WebClient
-import re
 from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
