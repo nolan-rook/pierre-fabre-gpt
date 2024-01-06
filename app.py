@@ -1,11 +1,11 @@
 import os
 import threading
 from flask import Flask, request, jsonify
+from dotenv import load_dotenv
+import shlex
 from orquesta_sdk import Orquesta, OrquestaClientOptions
 from slack_sdk import WebClient
-import shlex
-import logging
-from dotenv import load_dotenv
+
 # Load environment variables
 load_dotenv()
 
@@ -94,7 +94,7 @@ def slack_commands():
 
     if orquesta_key:
         # Send an immediate response to acknowledge the command
-        immediate_response = "Processing your request for command: {}".format(command)
+        immediate_response = "Processing your Orquesta query for command: {}".format(command)
         threading.Thread(target=execute_orquesta_command, args=(orquesta_key, command_text, response_url, user_id, channel_id, data.get('ts'))).start()
         return jsonify({'text': immediate_response}), 200
     else:
@@ -102,11 +102,8 @@ def slack_commands():
         return jsonify({'text': "Sorry, I don't recognize that command."}), 200
 
 def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, channel_id, ts):
-    logging.info(f"Received command: {orquesta_key} with text: {command_text}")
-
-    # Initialize variables dictionary
+    # Parse the command_text based on the command to extract the necessary variables
     variables = {}
-
     # Use shlex to split the command_text into arguments while respecting quoted substrings
     try:
         args = shlex.split(command_text)
@@ -119,65 +116,48 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
             text=f"Error parsing arguments: {e}. Make sure to enclose each argument with double quotes."
         )
         return
-
-    # Handle the 'blog-post-creator' command
     if orquesta_key == "blog-post-creator":
-        if len(args) == 2:
+        try:
             keywords, content = args
             variables = {"keywords": keywords.split(), "content": content}
-            logging.info(f"Prepared variables for blog-post-creator: {variables}")
-        else:
-            logging.warning("Incorrect number of arguments for /blog command.")
+        except ValueError:
+            # Handle the error if the command_text does not contain the expected number of arguments
             slack_client.chat_postMessage(
                 channel=channel_id,
                 thread_ts=ts,
-                text='Usage: /blog "keywords" "content to write about"'
+                text='Usage: /blog [keywords] [content]'
             )
             return
     elif orquesta_key == "linkedin-post-creator":
-        if len(args) == 2:
+        try:
             user, content = args
             variables = {"user": user, "content": content}
-        else:
+        except ValueError:
             slack_client.chat_postMessage(
                 channel=channel_id,
                 thread_ts=ts,
-                text='Usage: /linkedin-post "user" "content to post"'
+                text='Usage: /linkedin-post [user] [content]'
             )
             return
     elif orquesta_key == "content-to-persona-creator":
-        if len(args) == 1:
-            content = args[0]
-            variables = {"content": content}
-        else:
-            slack_client.chat_postMessage(
-                channel=channel_id,
-                thread_ts=ts,
-                text='Usage: /persona "content to analyze"'
-            )
-            return
-     # Handle the 'mail-creator' command
+        variables = {"content": command_text}
     elif orquesta_key == "mail-creator":
-        if len(args) == 3:
+        try:
             to, from_user, content = args
             variables = {"to": to, "from": from_user, "content": content}
-            logging.info(f"Prepared variables for mail-creator: {variables}")
-        else:
-            logging.warning("Incorrect number of arguments for /mail command.")
+        except ValueError:
             slack_client.chat_postMessage(
                 channel=channel_id,
                 thread_ts=ts,
-                text='Usage: /mail "recipient email" "sender email" "content in bulletpoints"'
+                text='Usage: /mail [to] [from] [content in bulletpoints]'
             )
             return
     elif orquesta_key == "image-creator-prompt":
-        if len(args) == 1:
-            goal_of_image = args[0]
-            # Step 1: Invoke the image-creator-prompt deployment
-            prompt_deployment = client.deployments.invoke(
-                key="image-creator-prompt",
-                inputs={"goal_of_image": goal_of_image}
-            )
+        # Step 1: Invoke the image-creator-prompt deployment
+        prompt_deployment = client.deployments.invoke(
+            key="image-creator-prompt",
+            inputs={"goal_of_image": command_text}
+        )
 
         # Check if the prompt deployment has choices and a message
         if prompt_deployment.choices and prompt_deployment.choices[0].message:
@@ -214,35 +194,22 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
             )
         return  # End the function after handling the image creation
     else:
-        # Initialize the deployment variable
-        deployment = None
-        # Invoke the Orquesta deployment
-        logging.info(f"Invoking Orquesta deployment for key: {orquesta_key} with variables: {variables}")
-        try:
-            deployment = client.deployments.invoke(
-                key=orquesta_key,
-                inputs=variables
-            )
-            logging.info(f"Orquesta deployment response: {deployment}")
-        except Exception as e:
-            logging.error(f"Orquesta deployment failed: {e}")
-            slack_client.chat_postMessage(
-                channel=channel_id,
-                thread_ts=ts,
-                text=f"There was an error invoking the Orquesta deployment: {e}"
-            )
-            return
+        # Invoke the Orquesta deployment for other commands
+        deployment = client.deployments.invoke(
+            key=orquesta_key,
+            inputs=variables
+        )
 
         # Check if the deployment has choices and a message
-        if deployment and deployment.choices and deployment.choices[0].message:
-            logging.info("Sending Orquesta deployment result to Slack.")
+        if deployment.choices and deployment.choices[0].message:
+            # Use the response_url to send the result back to Slack
             slack_client.chat_postMessage(
                 channel=channel_id,
                 thread_ts=ts,
                 text=deployment.choices[0].message.content
             )
-        elif deployment:
-            logging.error("No message in the choices from Orquesta deployment.")
+        else:
+            # Handle the case where there is no message in the choices
             slack_client.chat_postMessage(
                 channel=channel_id,
                 thread_ts=ts,
