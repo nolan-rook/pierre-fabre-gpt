@@ -141,8 +141,8 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
         inputs = {"content": content}
     elif orquesta_key == "mail-creator":
         try:
-            to, from, content = args
-            inputs = {"to": to, "from": from, "content": content}
+            to, from_, content = args
+            inputs = {"to": to, "from_": from_, "content": content}
         except ValueError:
             slack_client.chat_postMessage(
                 channel=channel_id,
