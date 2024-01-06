@@ -101,7 +101,6 @@ def slack_commands():
         # Command not recognized, send an error message
         return jsonify({'text': "Sorry, I don't recognize that command."}), 200
 
-```python
 def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, channel_id, ts):
     logging.info(f"Received command: {orquesta_key} with text: {command_text}")
 
