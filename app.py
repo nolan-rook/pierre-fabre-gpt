@@ -1,8 +1,7 @@
 import os
 import threading
 from flask import Flask, request, jsonify
-from orquesta_sdk import OrquestaClient, OrquestaClientOptions
-from orquesta_sdk.endpoints import OrquestaEndpointRequest
+from orquesta_sdk import Orquesta, OrquestaClientOptions
 import shlex
 from slack_sdk import WebClient
 from dotenv import load_dotenv
@@ -17,8 +16,8 @@ slack_client = WebClient()
 
 # Initialize Orquesta client
 api_key = os.getenv("ORQUESTA_API_KEY")
-options = OrquestaClientOptions(api_key=api_key, ttl=3600, environment="production")
-client = OrquestaClient(options)
+options = OrquestaClientOptions(api_key=api_key, environment="production")
+client = Orquesta(options)
 
 # Route for handling Slack events
 @app.route('/slack/events', methods=['POST'])
