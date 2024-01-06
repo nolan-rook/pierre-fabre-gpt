@@ -1,10 +1,10 @@
 import os
 import threading
 from flask import Flask, request, jsonify
-from dotenv import load_dotenv
 from orquesta_sdk import Orquesta, OrquestaClientOptions
 from slack_sdk import WebClient
-
+import re
+from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
@@ -101,49 +101,44 @@ def slack_commands():
         return jsonify({'text': "Sorry, I don't recognize that command."}), 200
 
 def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, channel_id, ts):
-    # Parse the command_text based on the command to extract the necessary variables
+    # Define a regex pattern to match the command text within square brackets
+    pattern = r.*?).*)]'
+    
+    # Initialize variables dictionary
     variables = {}
+
+    # Match the command text against the regex pattern
+    matches = re.match(pattern, command_text)
+
+    if not matches:
+        # If the pattern does not match, send a usage message and return
+        slack_client.chat_postMessage(
+            channel=channel_id,
+            thread_ts=ts,
+            text=f"Usage: {command} [argument1] [argument2] ... Check your formatting and try again."
+        )
+        return
+
+    # Extract the matched groups based on the command
     if orquesta_key == "blog-post-creator":
-        try:
-            keywords, content = command_text.split(' ', 1)
-            variables = {"keywords": keywords, "content": content}
-        except ValueError:
-            # Handle the error if the command_text does not contain the expected number of arguments
-            slack_client.chat_postMessage(
-                channel=channel_id,
-                thread_ts=ts,
-                text="Usage: /blog [keywords] [content]"
-            )
-            return
+        keywords, content = matches.groups()
+        variables = {"keywords": keywords, "content": content}
     elif orquesta_key == "linkedin-post-creator":
-        try:
-            user, content = command_text.split(' ', 1)
-            variables = {"user": user, "content": content}
-        except ValueError:
-            slack_client.chat_postMessage(
-                channel=channel_id,
-                thread_ts=ts,
-                text="Usage: /linkedin-post [user] [content]"
-            )
-            return
+        user, content = matches.groups()
+        variables = {"user": user, "content": content}
     elif orquesta_key == "content-to-persona-creator":
-        variables = {"content": command_text}
+        content, = matches.groups()
+        variables = {"content": content}
     elif orquesta_key == "mail-creator":
-        try:
-            to, from_user, content = command_text.split(' ', 2)
-            variables = {"to": to, "from": from_user, "content": content}
-        except ValueError:
-            slack_client.chat_postMessage(
-                channel=channel_id,
-                thread_ts=ts,
-                text="Usage: /mail [to] [from] [content in bulletpoints]"
-            )
-            return
+        to, from_user, content = re.match(r[(.*?)s[(.*?)s command_text).groups()
+        variables = {"to": to, "from": from_user, "content": content}
     elif orquesta_key == "image-creator-prompt":
-        # Step 1: Invoke the image-creator-prompt deployment
+        goal_of_image, = matches.groups()
+        variables = {"goal_of_image": goal_of_image}
+        # Invoke the image-creator-prompt deployment
         prompt_deployment = client.deployments.invoke(
             key="image-creator-prompt",
-            inputs={"goal_of_image": command_text}
+            inputs=variables
         )
 
         # Check if the prompt deployment has choices and a message
