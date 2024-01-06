@@ -101,39 +101,57 @@ def slack_commands():
         return jsonify({'text': "Sorry, I don't recognize that command."}), 200
 
 def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, channel_id, ts):
-    # Define a regex pattern to match the command text within square brackets
-    pattern = r.*?).*)]'
     
     # Initialize variables dictionary
     variables = {}
 
-    # Match the command text against the regex pattern
+    if orquesta_key == "blog-post-creator":
+    # Define a regex pattern to match the command text within square brackets
+    pattern = r[(.*?)][(.*?)]'
     matches = re.match(pattern, command_text)
-
-    if not matches:
-        # If the pattern does not match, send a usage message and return
+    if matches:
+        keywords, content = matches.groups()
+        variables = {"keywords": keywords, "content": content}
+    else:
         slack_client.chat_postMessage(
             channel=channel_id,
             thread_ts=ts,
-            text=f"Usage: {command} [argument1] [argument2] ... Check your formatting and try again."
+            text="Usage: /blog [keywords] [content]"
         )
         return
 
-    # Extract the matched groups based on the command
-    if orquesta_key == "blog-post-creator":
-        keywords, content = matches.groups()
-        variables = {"keywords": keywords, "content": content}
     elif orquesta_key == "linkedin-post-creator":
-        user, content = matches.groups()
-        variables = {"user": user, "content": content}
+        pattern = r[(.*?).*?)]'
+        matches = re.match(pattern, command_text)
+        if matches:
+            user, content = matches.groups()
+            variables = {"user": user, "content": content}
+        else:
+            slack_client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=ts,
+                text="Usage: /linkedin-post [user] [content]"
+            )
+            return
+
     elif orquesta_key == "content-to-persona-creator":
-        content, = matches.groups()
         variables = {"content": content}
+
     elif orquesta_key == "mail-creator":
-        to, from_user, content = re.match(r[(.*?)s[(.*?)s command_text).groups()
-        variables = {"to": to, "from": from_user, "content": content}
+        pattern = r.*?)][(.*?).*?)]'
+        matches = re.match(pattern, command_text)
+        if matches:
+            to, from_user, content = matches.groups()
+            variables = {"to": to, "from": from_user, "content": content}
+        else:
+            slack_client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=ts,
+                text="Usage: /mail [to] [from] [content]"
+            )
+            return
+
     elif orquesta_key == "image-creator-prompt":
-        goal_of_image, = matches.groups()
         variables = {"goal_of_image": goal_of_image}
         # Invoke the image-creator-prompt deployment
         prompt_deployment = client.deployments.invoke(
