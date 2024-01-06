@@ -214,22 +214,22 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
             )
         return  # End the function after handling the image creation
     else:
-    # Invoke the Orquesta deployment
-    logging.info(f"Invoking Orquesta deployment for key: {orquesta_key} with variables: {variables}")
-    try:
-        deployment = client.deployments.invoke(
-            key=orquesta_key,
-            inputs=variables
-        )
-        logging.info(f"Orquesta deployment response: {deployment}")
-    except Exception as e:
-        logging.error(f"Orquesta deployment failed: {e}")
-        slack_client.chat_postMessage(
-            channel=channel_id,
-            thread_ts=ts,
-            text=f"There was an error invoking the Orquesta deployment: {e}"
-        )
-        return
+        # Invoke the Orquesta deployment
+        logging.info(f"Invoking Orquesta deployment for key: {orquesta_key} with variables: {variables}")
+        try:
+            deployment = client.deployments.invoke(
+                key=orquesta_key,
+                inputs=variables
+            )
+            logging.info(f"Orquesta deployment response: {deployment}")
+        except Exception as e:
+            logging.error(f"Orquesta deployment failed: {e}")
+            slack_client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=ts,
+                text=f"There was an error invoking the Orquesta deployment: {e}"
+            )
+            return
 
     # Check if the deployment has choices and a message
     if deployment.choices and deployment.choices[0].message:
