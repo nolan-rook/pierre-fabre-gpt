@@ -3,7 +3,7 @@ import threading
 from flask import Flask, request, jsonify
 from orquesta_sdk import Orquesta, OrquestaClientOptions
 from slack_sdk import WebClient
-import re
+import shlex
 from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
@@ -101,63 +101,71 @@ def slack_commands():
         return jsonify({'text': "Sorry, I don't recognize that command."}), 200
 
 def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, channel_id, ts):
-    
     # Initialize variables dictionary
     variables = {}
-
-    if orquesta_key == "blog-post-creator":
-    # Define a regex pattern to match the command text within square brackets
-    pattern = r[(.*?)][(.*?)]'
-    matches = re.match(pattern, command_text)
-    if matches:
-        keywords, content = matches.groups()
-        variables = {"keywords": keywords, "content": content}
-    else:
+    # Use shlex to split the command_text into arguments while respecting quoted substrings
+    try:
+        args = shlex.split(command_text)
+    except ValueError as e:
         slack_client.chat_postMessage(
             channel=channel_id,
             thread_ts=ts,
-            text="Usage: /blog [keywords] [content]"
+            text=f"Error parsing arguments: {e}. Make sure to enclose each argument with double quotes."
         )
         return
 
+    if orquesta_key == "blog-post-creator":
+        if len(args) == 2:
+            keywords, content = args
+            variables = {"keywords": keywords.split(), "content": content}
+        else:
+            slack_client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=ts,
+                text='Usage: /blog "keywords" "content to write about"'
+            )
+            return
     elif orquesta_key == "linkedin-post-creator":
-        pattern = r[(.*?).*?)]'
-        matches = re.match(pattern, command_text)
-        if matches:
-            user, content = matches.groups()
+        if len(args) == 2:
+            user, content = args
             variables = {"user": user, "content": content}
         else:
             slack_client.chat_postMessage(
                 channel=channel_id,
                 thread_ts=ts,
-                text="Usage: /linkedin-post [user] [content]"
+                text='Usage: /linkedin-post "user" "content to post"'
             )
             return
-
     elif orquesta_key == "content-to-persona-creator":
-        variables = {"content": content}
-
+        if len(args) == 1:
+            content = args[0]
+            variables = {"content": content}
+        else:
+            slack_client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=ts,
+                text='Usage: /persona "content to analyze"'
+            )
+            return
     elif orquesta_key == "mail-creator":
-        pattern = r.*?)][(.*?).*?)]'
-        matches = re.match(pattern, command_text)
-        if matches:
-            to, from_user, content = matches.groups()
+        if len(args) == 3:
+            to, from_user, content = args
             variables = {"to": to, "from": from_user, "content": content}
         else:
             slack_client.chat_postMessage(
                 channel=channel_id,
                 thread_ts=ts,
-                text="Usage: /mail [to] [from] [content]"
+                text='Usage: /mail "recipient email" "sender email" "content in bulletpoints"'
             )
             return
-
     elif orquesta_key == "image-creator-prompt":
-        variables = {"goal_of_image": goal_of_image}
-        # Invoke the image-creator-prompt deployment
-        prompt_deployment = client.deployments.invoke(
-            key="image-creator-prompt",
-            inputs=variables
-        )
+        if len(args) == 1:
+            goal_of_image = args[0]
+            # Step 1: Invoke the image-creator-prompt deployment
+            prompt_deployment = client.deployments.invoke(
+                key="image-creator-prompt",
+                inputs={"goal_of_image": goal_of_image}
+            )
 
         # Check if the prompt deployment has choices and a message
         if prompt_deployment.choices and prompt_deployment.choices[0].message:
