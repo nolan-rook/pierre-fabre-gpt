@@ -1,11 +1,11 @@
 import os
 import threading
 from flask import Flask, request, jsonify
-from dotenv import load_dotenv
+from orquesta_sdk import OrquestaClient, OrquestaClientOptions
+from orquesta_sdk.endpoints import OrquestaEndpointRequest
 import shlex
-from orquesta_sdk import Orquesta, OrquestaClientOptions
 from slack_sdk import WebClient
-
+from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
@@ -13,12 +13,12 @@ load_dotenv()
 app = Flask(__name__)
 
 # Initialize Slack client
-slack_client = WebClient(token=os.getenv("SLACK_BOT_TOKEN"))
+slack_client = WebClient()
 
 # Initialize Orquesta client
 api_key = os.getenv("ORQUESTA_API_KEY")
-options = OrquestaClientOptions(api_key=api_key, environment="production")
-client = Orquesta(options)
+options = OrquestaClientOptions(api_key=api_key, ttl=3600, environment="production")
+client = OrquestaClient(options)
 
 # Route for handling Slack events
 @app.route('/slack/events', methods=['POST'])
@@ -53,20 +53,21 @@ def handle_app_mention(event):
     threading.Thread(target=query_orquesta, args=(event, prompt_user)).start()
 
 def query_orquesta(event, prompt_user):
-    # Invoke the Orquesta deployment
-    deployment = client.deployments.invoke(
+    # Create an OrquestaEndpointRequest object
+    orquesta_request = OrquestaEndpointRequest(
         key="pierre-slack-app",
-        inputs={"prompt": prompt_user}
+        variables={"prompt": prompt_user}
     )
 
-    # Check if the deployment has choices and a message
-    if deployment.choices and deployment.choices[0].message:
-        # Reply to the thread with the result from Orquesta
-        slack_client.chat_postMessage(
-            channel=event['channel'],
-            thread_ts=event['ts'],
-            text=deployment.choices[0].message.content
-        )
+    # Query the OrquestaClient for a response
+    result = client.endpoints.query(orquesta_request)
+
+    # Reply to the thread with the result from Orquesta
+    slack_client.chat_postMessage(
+        channel=event['channel'],
+        thread_ts=event['ts'],  # Ensure this is the original message timestamp
+        text=result.content
+    )
 
 # Updated Route for handling Slash Commands
 @app.route('/slack/commands', methods=['POST'])
@@ -103,7 +104,9 @@ def slack_commands():
 
 def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, channel_id, ts):
     # Parse the command_text based on the command to extract the necessary variables
+    # Initialize variables dictionary
     variables = {}
+
     # Use shlex to split the command_text into arguments while respecting quoted substrings
     try:
         args = shlex.split(command_text)
@@ -125,7 +128,7 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
             slack_client.chat_postMessage(
                 channel=channel_id,
                 thread_ts=ts,
-                text='Usage: /blog [keywords] [content]'
+                text='Usage: /blog "keywords" "content"'
             )
             return
     elif orquesta_key == "linkedin-post-creator":
@@ -136,11 +139,12 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
             slack_client.chat_postMessage(
                 channel=channel_id,
                 thread_ts=ts,
-                text='Usage: /linkedin-post [user] [content]'
+                text='Usage: /linkedin-post "user" "content"'
             )
             return
     elif orquesta_key == "content-to-persona-creator":
-        variables = {"content": command_text}
+        content = command_text
+        variables = {"content": content}
     elif orquesta_key == "mail-creator":
         try:
             to, from_user, content = args
@@ -149,7 +153,7 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
             slack_client.chat_postMessage(
                 channel=channel_id,
                 thread_ts=ts,
-                text='Usage: /mail [to] [from] [content in bulletpoints]'
+                text='Usage: /mail "to" "from" "content in bulletpoints"'
             )
             return
     elif orquesta_key == "image-creator-prompt":
@@ -192,19 +196,24 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
                 thread_ts=ts,
                 text="There was an error processing your prompt request."
             )
-        return  # End the function after handling the image creation
-    else:
-        # Invoke the Orquesta deployment for other commands
-        deployment = client.deployments.invoke(
-            key=orquesta_key,
-            inputs=variables
-        )
-        # Use the response_url to send the result back to Slack
-        slack_client.chat_postMessage(
-            channel=channel_id,
-            thread_ts=ts,
-            text=deployment.choices[0].message.content
-        )
+        return 
+
+    # Create an OrquestaEndpointRequest object with the specific variables for the command
+    orquesta_request = OrquestaEndpointRequest(
+        key=orquesta_key,
+        variables=variables
+    )
+
+    # Query the OrquestaClient for a response
+    result = client.endpoints.query(orquesta_request)
+
+    # Use the response_url to send the result back to Slack
+    slack_client.token = os.getenv("SLACK_BOT_TOKEN")
+    slack_client.chat_postMessage(
+        channel=channel_id,
+        thread_ts=ts,  # Use the timestamp from the Slash Command request
+        text=result.content
+    )
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
