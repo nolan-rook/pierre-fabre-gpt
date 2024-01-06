@@ -214,6 +214,8 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
             )
         return  # End the function after handling the image creation
     else:
+        # Initialize the deployment variable
+        deployment = None
         # Invoke the Orquesta deployment
         logging.info(f"Invoking Orquesta deployment for key: {orquesta_key} with variables: {variables}")
         try:
@@ -231,21 +233,21 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
             )
             return
 
-    # Check if the deployment has choices and a message
-    if deployment.choices and deployment.choices[0].message:
-        logging.info("Sending Orquesta deployment result to Slack.")
-        slack_client.chat_postMessage(
-            channel=channel_id,
-            thread_ts=ts,
-            text=deployment.choices[0].message.content
-        )
-    else:
-        logging.error("No message in the choices from Orquesta deployment.")
-        slack_client.chat_postMessage(
-            channel=channel_id,
-            thread_ts=ts,
-            text="There was an error processing your request."
-        )
+        # Check if the deployment has choices and a message
+        if deployment and deployment.choices and deployment.choices[0].message:
+            logging.info("Sending Orquesta deployment result to Slack.")
+            slack_client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=ts,
+                text=deployment.choices[0].message.content
+            )
+        elif deployment:
+            logging.error("No message in the choices from Orquesta deployment.")
+            slack_client.chat_postMessage(
+                channel=channel_id,
+                thread_ts=ts,
+                text="There was an error processing your request."
+            )
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
