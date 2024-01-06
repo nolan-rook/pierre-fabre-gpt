@@ -141,8 +141,8 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
         inputs = {"content": content}
     elif orquesta_key == "mail-creator":
         try:
-            to, from_user, content = args
-            inputs = {"to": to, "from": from_user, "content": content}
+            to, from, content = args
+            inputs = {"to": to, "from": from, "content": content}
         except ValueError:
             slack_client.chat_postMessage(
                 channel=channel_id,
@@ -193,13 +193,32 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
                 text="There was an error processing your prompt request."
             )
         return  # End the function after handling the image creation
+    try:
+        # Log the request body for debugging
+        print(f"Invoking Orquesta deployment with key: {orquesta_key} and inputs: {inputs}")
 
-    # Use the response_url to send the result back to Slack
-    slack_client.chat_postMessage(
-        channel=channel_id,
-        thread_ts=ts,  # Use the timestamp from the Slash Command request
-        text=deployment.choices[0].message.content
-    )
+        # Invoke the Orquesta deployment
+        deployment = client.deployments.invoke(
+            key=orquesta_key,
+            inputs=inputs
+        )
+
+        # Use the response_url to send the result back to Slack
+        slack_client.chat_postMessage(
+            channel=channel_id,
+            thread_ts=ts,  # Use the timestamp from the Slash Command request
+            text=deployment.choices[0].message.content
+        )
+    except Exception as e:
+        # Log the exception for debugging
+        print(f"An error occurred while invoking the Orquesta deployment: {e}")
+
+        # Send an error message back to Slack
+        slack_client.chat_postMessage(
+            channel=channel_id,
+            thread_ts=ts,
+            text="An error occurred while processing your request."
+        )
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
