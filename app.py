@@ -199,22 +199,12 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
             key=orquesta_key,
             inputs=variables
         )
-
-        # Check if the deployment has choices and a message
-        if deployment.choices and deployment.choices[0].message:
-            # Use the response_url to send the result back to Slack
-            slack_client.chat_postMessage(
-                channel=channel_id,
-                thread_ts=ts,
-                text=deployment.choices[0].message.content
-            )
-        else:
-            # Handle the case where there is no message in the choices
-            slack_client.chat_postMessage(
-                channel=channel_id,
-                thread_ts=ts,
-                text="There was an error processing your request."
-            )
+        # Use the response_url to send the result back to Slack
+        slack_client.chat_postMessage(
+            channel=channel_id,
+            thread_ts=ts,
+            text=deployment.choices[0].message.content
+        )
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
