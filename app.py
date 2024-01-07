@@ -117,7 +117,7 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
     if orquesta_key == "blog-post-creator":
         try:
             keywords, content = args
-            inputs = {"content": content, "keywords": keywords.split()}
+            inputs = {"content": content, "keywords": keywords}
         except ValueError:
             slack_client.chat_postMessage(
                 channel=channel_id,
