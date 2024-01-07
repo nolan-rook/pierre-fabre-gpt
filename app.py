@@ -90,8 +90,8 @@ def slack_commands():
     orquesta_key = command_to_key_map.get(command)
 
     if orquesta_key:
-        # Send an immediate response to acknowledge the command
-        immediate_response = "Processing your Orquesta query for command: {}".format(command)
+        # Send an immediate response to acknowledge the command and include the command text
+        immediate_response = "Processing your request for command: '{}', with: '{}'".format(command, command_text)
         threading.Thread(target=execute_orquesta_command, args=(orquesta_key, command_text, response_url, user_id, channel_id, data.get('ts'))).start()
         return jsonify({'text': immediate_response}), 200
     else:
