@@ -131,7 +131,7 @@ def query_orquesta(event, prompt_user, text_content):
     if not text_content:
         # Invoke the Orquesta deployment
         deployment = client.deployments.invoke(
-            key="pierre-slack-app",
+            key="pierre_fabre-slack-app",
             context={
                 "doc": False
             },
@@ -142,7 +142,7 @@ def query_orquesta(event, prompt_user, text_content):
     else:
         # Invoke the Orquesta deployment
         deployment = client.deployments.invoke(
-            key="pierre-slack-app",
+            key="pierre_fabre-slack-app",
             context={
                 "environments": [],
                 "doc": None
