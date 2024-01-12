@@ -116,6 +116,11 @@ def process_file_content(file_content, event):
 
 def extract_text_from_pdf(file_content):
     try:
+        # Save the file_content to a temporary file to inspect manually if needed
+        with open('temp_file.pdf', 'wb') as f:
+            f.write(file_content)
+
+        # Use PyPDF2 to extract text
         reader = PdfReader('temp_file.pdf')
         text = ""
         for page in reader.pages:
