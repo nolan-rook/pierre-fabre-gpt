@@ -5,6 +5,13 @@ from orquesta_sdk import Orquesta, OrquestaClientOptions
 import shlex
 from slack_sdk import WebClient
 from dotenv import load_dotenv
+import requests
+import logging
+import io
+import fitz
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 # Load environment variables
 load_dotenv()
@@ -20,10 +27,13 @@ api_key = os.getenv("ORQUESTA_API_KEY")
 options = OrquestaClientOptions(api_key=api_key, environment="production")
 client = Orquesta(options)
 
+bot_user_id = slack_client.auth_test()['user_id']
+
 # Route for handling Slack events
 @app.route('/slack/events', methods=['POST'])
 def slack_events():
     data = request.json
+    logging.info(f"Received event: {data}")  # Log the received event
 
     # Slack sends a challenge parameter in the initial verification request
     if 'challenge' in data:
@@ -34,37 +44,122 @@ def slack_events():
     # Handle app_mention events
     if event.get('type') == 'app_mention':
         handle_app_mention(event)
+    # Handle app direct messages 
+    elif event.get('type') == 'message' and event.get('channel_type') == 'im':
+        handle_app_mention(event)
 
     return '', 200  # HTTP 200 with empty body
 
 def handle_app_mention(event):
-    # Extract the text mentioned to the bot
-    prompt_user = event.get('text', '').split('>')[1].strip()
+    logging.info(f"Handling event: {event}")  # Log the event being handled
+    # Ignore events where the user is the bot itself
+    if event.get('user') == bot_user_id:
+        return
+    
+    if event.get('type') == 'app_mention':
+        prompt_user = event.get('text', '').split('>')[1].strip()
+    elif event.get('type') == 'message' and event.get('channel_type') == 'im':
+        prompt_user = event.get('text', '').strip()
 
-    # Send an immediate response to Slack indicating that the request is being processed
+    files = event.get('files', [])
+    text_content = None  # Initialize text_content
+
+    if files:
+        for file_info in files:
+            text_content = handle_file(file_info, event)  # Capture the returned text_content
+            if text_content:  # If text_content is available, break the loop
+                break
+
     slack_client.chat_postMessage(
         channel=event['channel'],
-        thread_ts=event['ts'],  # Ensure this is the original message timestamp
+        thread_ts=event['ts'],
         text="Processing your request, please wait..."
     )
 
-    # Start a new thread to handle the long-running Orquesta API call
-    threading.Thread(target=query_orquesta, args=(event, prompt_user)).start()
+    threading.Thread(target=query_orquesta, args=(event, prompt_user, text_content)).start()
 
-def query_orquesta(event, prompt_user):
-    # Invoke the Orquesta deployment
-    deployment = client.deployments.invoke(
-        key="pierre-slack-app",
-        inputs={"prompt": prompt_user}
-    )
+def handle_file(file_info, event):
+    file_id = file_info.get('id')
+    text_content = None  # Initialize text_content
+    try:
+        file_url = file_info.get('url_private_download')  # Use the direct download URL
+        file_content = download_file(file_url)
+        text_content = process_file_content(file_content, event)  # Get text_content from the file
+    except SlackApiError as e:
+        logging.error(f"Error getting file info: {e}")
+    return text_content  # Return the extracted text content
+    
+def download_file(file_url):
+    headers = {'Authorization': f'Bearer {os.getenv("SLACK_BOT_TOKEN")}'}
+    response = requests.get(file_url, headers=headers)
+    if response.status_code == 200:
+        logging.info(f"File downloaded successfully: {file_url}")  # Log successful download
+        return response.content
+    else:
+        logging.error(f"Error downloading file: {response.status_code}, {response.text}")  # Log download error
+        return None
 
-    # Reply to the thread with the result from Orquesta
+def process_file_content(file_content, event):
+    file_info = event.get('files', [])[0]  # Assuming there's at least one file
+    file_type = file_info.get('filetype')
+
+    text_content = None
+    if file_type == 'pdf':
+        text_content = extract_text_from_pdf(file_content)
+
+    if text_content:
+        # This is just a placeholder to illustrate the process
+        logging.info(f"Extracted text content: {text_content[:100]}")  # Log the first 100 characters
+    else:
+        logging.error("Could not extract text from the file. Make sure that you upload a pdf")
+    return text_content
+
+def extract_text_from_pdf(file_content):
+    try:
+        with fitz.open(stream=file_content, filetype="pdf") as pdf:
+            text = ""
+            for page in pdf:
+                text += page.get_text()
+            return text
+    except Exception as e:
+        logging.error(f"Error extracting text from PDF: {e}")
+        return None
+
+def query_orquesta(event, prompt_user, text_content):
+    logging.info(f"Invoking Orquesta with event: {event}, prompt_user: {prompt_user}, text_content: {text_content}")  # Log the Orquesta invocation
+    # Check if text_content is empty
+    if not text_content:
+        # Invoke the Orquesta deployment
+        deployment = client.deployments.invoke(
+            key="pierre-slack-app",
+            context={
+                "doc": False
+            },
+            inputs={
+                "prompt": prompt_user
+            }
+        )
+    else:
+        # Invoke the Orquesta deployment
+        deployment = client.deployments.invoke(
+            key="pierre-slack-app",
+            context={
+                "environments": [],
+                "doc": None
+            },
+            inputs={
+                "doc": text_content,
+                "prompt": prompt_user
+            }
+        )
+
+    logging.info(f"Posting message to thread: {deployment.choices[0].message.content}")  # Log the message being posted
     slack_client.chat_postMessage(
         channel=event['channel'],
         thread_ts=event['ts'],  # Ensure this is the original message timestamp
         text=deployment.choices[0].message.content
     )
-
+    
 # Updated Route for handling Slash Commands
 @app.route('/slack/commands', methods=['POST'])
 def slack_commands():
@@ -72,18 +167,32 @@ def slack_commands():
 
     # Extract the command text and other relevant information
     command_text = data.get('text')
+    logging.info(f"Command text: {command_text}")
     command = data.get('command')
     response_url = data.get('response_url')
     user_id = data.get('user_id')
     channel_id = data.get('channel_id')
 
+    # Special handling for the /content-BEMelanoma-All command
+    if command == "/content-BEMelanoma-All":
+        # Acknowledge the command and start processing
+        immediate_response = "Processing your request for command: '{}', with: '{}'".format(command, command_text)
+        slack_client.chat_postMessage(channel=channel_id, text=immediate_response)
+        
+        # Call a separate function to handle this command
+        threading.Thread(target=handle_content_BEMelanoma_All, args=(command_text, channel_id, data.get('ts'))).start()
+        return '', 200
+
     # Map the command to the corresponding Orquesta prompt key
     command_to_key_map = {
-        "/blog": "blog-post-creator",
-        "/linkedin-post": "linkedin-post-creator",
-        "/content-to-persona": "content-to-persona-creator",
-        "/mail": "mail-creator",
-        "/image": "image-creator-prompt"
+    "/blog": "blog-post-creator",
+    "/linkedin-post": "linkedin-post-creator",
+    "/content-to-persona": "content-to-persona-creator",
+    "/mail": "mail-creator",
+    "/image": "image-creator-prompt",
+    "/content-BEMelanoma-Innovator": "content-BEMelanoma-Innovator-creator",
+    "/content-BEMelanoma-Science": "content-BEMelanoma-Science-creator",
+    "/content-BEMelanoma-Patient": "content-BEMelanoma-Patient-creator"
     }
 
     # Check if the command is recognized and get the Orquesta prompt key
@@ -114,7 +223,16 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
         return
 
     # Map the command to the corresponding Orquesta inputs
-    if orquesta_key == "blog-post-creator":
+    if orquesta_key == "content-BEMelanoma-Innovator-creator":
+        content = command_text
+        inputs = {"content": content}
+    elif orquesta_key == "content-BEMelanoma-Science-driven-creator":
+        content = command_text
+        inputs = {"content": content}
+    elif orquesta_key == "content-BEMelanoma-Patient-oriented-creator":
+        content = command_text
+        inputs = {"content": content}
+    elif orquesta_key == "blog-post-creator":
         try:
             keywords, content = args
             inputs = {"content": content, "keywords": keywords}
@@ -220,5 +338,48 @@ def execute_orquesta_command(orquesta_key, command_text, response_url, user_id, 
             text="An error occurred while processing your request."
         )
 
+def handle_content_BEMelanoma_All(command_text, channel_id, ts):
+    content = command_text
+    inputs = {"content": content}
+
+    # Define the keys for the three different personas
+    persona_keys = {
+        "content-BEMelanoma-Innovator": "content-BEMelanoma-Innovator-creator",
+        "content-BEMelanoma-Science": "content-BEMelanoma-Science-creator",
+        "content-BEMelanoma-Patient": "content-BEMelanoma-Patient-creator"
+    }
+
+    # Initialize an empty list to store the results
+    results = []
+
+    # Loop over the persona_keys and invoke the corresponding Orquesta deployments
+    for persona, key in persona_keys.items():
+        try:
+            # Invoke the Orquesta deployment
+            deployment = client.deployments.invoke(
+                key=key,
+                inputs=inputs
+            )
+
+            # Append the result to the results list
+            result_text = f"Persona {persona}n{deployment.choices[0].message.content}"
+            results.append(result_text)
+        except Exception as e:
+            # Log the exception for debugging
+            logging.error(f"An error occurred while invoking the Orquesta deployment for {persona}: {e}")
+
+            # Append an error message to the results list
+            results.append(f"An error occurred while processing your request for persona: {persona}")
+
+    # Join the results into a single string with line breaks between each result
+    combined_results ="\n".join(results)
+
+    # Send the combined result back to Slack
+    slack_client.chat_postMessage(
+        channel=channel_id,
+        thread_ts=ts,  # Use the timestamp from the Slash Command request
+        text=combined_results
+    )
+    
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
