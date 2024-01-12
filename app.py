@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 import requests
 import logging
 import io
-import fitz
+from PyPDF2 import PdfReader
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -116,11 +116,11 @@ def process_file_content(file_content, event):
 
 def extract_text_from_pdf(file_content):
     try:
-        with fitz.open(stream=file_content, filetype="pdf") as pdf:
-            text = ""
-            for page in pdf:
-                text += page.get_text()
-            return text
+        reader = PdfReader('temp_file.pdf')
+        text = ""
+        for page in reader.pages:
+            text += page.extract_text()
+        return text
     except Exception as e:
         logging.error(f"Error extracting text from PDF: {e}")
         return None
