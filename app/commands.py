@@ -53,7 +53,7 @@ def handle_individual_command(command, command_text, channel_id, ts):
 def execute_orquesta_command(orquesta_key, command_text, channel_id, ts):
     try:
         inputs = get_orquesta_inputs(orquesta_key, command_text)
-        if orquesta_key == "image-creator-prompt":
+        if orquesta_key == "pierre-fabre-image-creator-prompt":
             handle_image_creation(inputs, channel_id, ts)
         else:
             invoke_orquesta_and_post_message(orquesta_key, inputs, channel_id, ts)
