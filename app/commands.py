@@ -85,7 +85,7 @@ def get_orquesta_inputs(orquesta_key, command_text):
     return command_to_inputs[orquesta_key]
 
 def handle_image_creation(inputs, channel_id, ts):
-    prompt_deployment = orquesta_client_module.client.deployments.invoke(key="image-creator-prompt", inputs=inputs)
+    prompt_deployment = orquesta_client_module.client.deployments.invoke(key="piere-fabre-image-creator-prompt", inputs=inputs)
     if prompt_deployment.choices and prompt_deployment.choices[0].message:
         image_deployment = orquesta_client_module.client.deployments.invoke(
             key="pierre-fabre-image-creator",
