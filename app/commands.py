@@ -66,14 +66,14 @@ def execute_orquesta_command(orquesta_key, command_text, channel_id, ts):
 def get_orquesta_inputs(orquesta_key, command_text):
     args = parse_command_arguments(command_text)
     command_to_inputs = {
-        "blog-post-creator": {"content": args[1], "keywords": args[0]} if len(args) >= 2 else None,
-        "linkedin-post-creator": {"user": args[0], "content": args[1]} if len(args) >= 2 else None,
-        "content-to-persona-creator": {"content": command_text},
-        "mail-creator": {"to": args[0], "from_": args[1], "content": args[2]} if len(args) >= 3 else None,
-        "image-creator-prompt": {"goal_of_image": command_text},
-        "content-BEMelanoma-Innovator-creator": {"content": command_text},
-        "content-BEMelanoma-Science-driven-creator": {"content": command_text},
-        "content-BEMelanoma-Patient-oriented-creator": {"content": command_text},
+        "pierre-fabre-blog-post-creator": {"content": args[1], "keywords": args[0]} if len(args) >= 2 else None,
+        "pierre-fabre-linkedin-post-creator": {"user": args[0], "content": args[1]} if len(args) >= 2 else None,
+        "pierre-fabre-content-to-persona-creator": {"content": command_text},
+        "pierre-fabre-mail-creator": {"to": args[0], "from_": args[1], "content": args[2]} if len(args) >= 3 else None,
+        "pierre-fabre-image-creator-prompt": {"goal_of_image": command_text},
+        "pierre-fabre-content-BEMelanoma-Innovator-creator": {"content": command_text},
+        "pierre-fabre-content-BEMelanoma-Science-driven-creator": {"content": command_text},
+        "pierre-fabre-content-BEMelanoma-Patient-oriented-creator": {"content": command_text},
     }
 
     if orquesta_key not in command_to_inputs:
