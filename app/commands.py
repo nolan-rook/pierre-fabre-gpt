@@ -22,20 +22,16 @@ def slack_commands():
     ts = data.get('ts')
     files = request.files.getlist('file')  # Get file attachments
 
-    logging.info(f"Received command '{command}' with text: {command_text}")
+    logging.info(f"Received command '{command}' with text: {command_text}, with files: {files}")
 
     # Process file attachments if present
     if files:
         for file in files:
-            file_info = {
-                'id': file.filename,
-                'url_private_download': file.stream,
-                'filetype': file.content_type.split('/')[-1]  # Extract filetype from content_type
-            }
-            file_text_content = handle_file(file_info)  # Process the file and extract text
+            file_type = file.content_type.split('/')[-1]  # Extract filetype from content_type
+            file_stream = file.stream  # Get the file stream
+            file_text_content = process_file_content(file_stream, file_type)  # Process the file and extract text
             if file_text_content:
-                command_text += "File: " + file_text_content  # Append the text content from the file to the command_text
-                break  # Use the text from the first file that contains text
+                command_text += " File: " + file_text_content  # Append the text content from the file to the command_text
 
     if command == "/content-BEMelanoma-All":
         return handle_all_personas_command(command_text, channel_id, ts)
