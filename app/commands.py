@@ -2,7 +2,8 @@ from flask import request, jsonify
 from app.utils import (
     parse_command_arguments,
     post_error_message,
-    handle_all_file
+    process_file_content,  # Import the process_file_content function
+    download_file  # Import the download_file function
 )
 from app import slack_client as slack_client_module
 from app import orquesta_client as orquesta_client_module
@@ -22,16 +23,15 @@ def slack_commands():
     ts = data.get('ts')
     files = request.files.getlist('file')  # Get file attachments
 
-    logging.info(f"Received command '{command}' with text: {command_text}, with files: {files}")
+    logging.info(f"Received command '{command}' with text: {command_text} and files {files}" )
 
-    # Process file attachments if present
     if files:
         for file in files:
+            file_stream = file.stream
             file_type = file.content_type.split('/')[-1]  # Extract filetype from content_type
-            file_stream = file.stream  # Get the file stream
-            file_text_content = process_file_content(file_stream, file_type)  # Process the file and extract text
+            file_text_content = handle_file(file_stream, file_type)  # Pass the stream and file type
             if file_text_content:
-                command_text += " File: " + file_text_content  # Append the text content from the file to the command_text
+                command_text += " File: " + file_text_content
 
     if command == "/content-BEMelanoma-All":
         return handle_all_personas_command(command_text, channel_id, ts)

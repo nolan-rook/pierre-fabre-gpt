@@ -30,8 +30,10 @@ def handle_app_mention(event):
 
     if files:
         for file_info in files:
-            text_content = handle_file(file_info, event)  # Capture the returned text_content
-            if text_content:  # If text_content is available, break the loop
+            file_url = file_info.get('url_private_download')
+            file_type = file_info.get('filetype')
+            text_content = handle_file(file_url, file_type)  # Pass the URL and file type
+            if text_content:
                 break
 
     # Use slack_client from the slack_client module
@@ -43,15 +45,23 @@ def handle_app_mention(event):
 
     threading.Thread(target=query_orquesta, args=(event, prompt_user, text_content)).start()
 
-def handle_file(file_info, event):
-    file_id = file_info.get('id')
+def handle_file(file_object, file_type):
     text_content = None  # Initialize text_content
     try:
-        file_url = file_info.get('url_private_download')  # Use the direct download URL
-        file_content = download_file(file_url)
-        text_content = process_file_content(file_content, event)  # Get text_content from the file
+        if isinstance(file_object, str):
+            # Handle the file URL (from events)
+            file_content = download_file(file_object)
+        elif hasattr(file, 'read'):
+            # Handle the file stream (from commands)
+            file_content = file_object.read()
+        else:
+            raise ValueError("Invalid file object provided.")
+        
+        text_content = process_file_content(file_content, file_type)  # Get text_content from the file
     except SlackApiError as e:
         logging.error(f"Error getting file info: {e}")
+    except Exception as e:
+        logging.error(f"Error processing file: {e}")
     return text_content  # Return the extracted text content
     
 def download_file(file_url):
@@ -64,10 +74,7 @@ def download_file(file_url):
         logging.error(f"Error downloading file: {response.status_code}, {response.text}")  # Log download error
         return None
 
-def process_file_content(file_content, event):
-    file_info = event.get('files', [])[0]  # Assuming there's at least one file
-    file_type = file_info.get('filetype')
-
+def process_file_content(file_content, file_type):
     text_content = None
     if file_type == 'pdf':
         text_content = extract_text_from_pdf(file_content)
@@ -172,12 +179,4 @@ def query_orquesta(event, prompt_user, text_content):
         thread_ts=event['ts'],  # Ensure this is the original message timestamp
         text=deployment.choices[0].message.content
     )
-
-def handle_all_file(file_info):
-    text_content = None  # Initialize text_content
-    try:
-        file_content = file_info.get('url_private_download').read()  # Read file content
-        text_content = process_file_content(file_content, file_info)  # Get text_content from the file
-    except Exception as e:
-        logging.error(f"Error processing file: {e}")
-    return text_content  # Return the extracted text content
+    
