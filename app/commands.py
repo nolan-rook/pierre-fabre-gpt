@@ -22,7 +22,7 @@ def slack_commands():
 
     logging.info(f"Received command '{command}' with text: {command_text}")
 
-    if command == "content-BEMelanoma-All":
+    if command == "/content-BEMelanoma-All": 
         return handle_all_personas_command(command_text, channel_id, ts)
 
     return handle_individual_command(command, command_text, channel_id, ts)
