@@ -11,6 +11,8 @@ import requests
 from slack_sdk.errors import SlackApiError
 import os
 
+from app.config import COMPANY_NAME_PREFIX
+
 def handle_app_mention(event):
     logging.info(f"Handling event: {event}")  # Log the event being handled
     # Ignore events where the user is the bot itself
@@ -142,7 +144,7 @@ def query_orquesta(event, prompt_user, text_content):
     if not text_content:
         # Invoke the Orquesta deployment
         deployment = orquesta_client_module.client.deployments.invoke(
-            key="pierre-fabre-slack-app",
+            key=f"{COMPANY_NAME_PREFIX}-slack-app",
             context={
                 "doc": False
             },
@@ -153,7 +155,7 @@ def query_orquesta(event, prompt_user, text_content):
     else:
         # Invoke the Orquesta deployment
         deployment = orquesta_client_module.client.deployments.invoke(
-            key="pierre-fabre-slack-app",
+            key=f"{COMPANY_NAME_PREFIX}-slack-app",
             context={
                 "environments": [],
                 "doc": None

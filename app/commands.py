@@ -8,6 +8,8 @@ from app import orquesta_client as orquesta_client_module
 import logging
 import threading
 
+from app.config import COMPANY_NAME_PREFIX
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
@@ -20,7 +22,7 @@ def slack_commands():
 
     logging.info(f"Received command '{command}' with text: {command_text}")
 
-    if command == "/content-BEMelanoma-All":
+    if command == "content-BEMelanoma-All":
         return handle_all_personas_command(command_text, channel_id, ts)
 
     return handle_individual_command(command, command_text, channel_id, ts)
@@ -32,14 +34,14 @@ def handle_all_personas_command(command_text, channel_id, ts):
 
 def handle_individual_command(command, command_text, channel_id, ts):
     command_to_key_map = {
-    "/blog": "pierre-fabre-blog-post-creator",
-    "/linkedin-post": "pierre-fabre-linkedin-post-creator",
-    "/content-to-persona": "pierre-fabre-content-to-persona-creator",
-    "/mail": "pierre-fabre-mail-creator",
-    "/image": "pierre-fabre-image-creator-prompt",
-    "/content-BEMelanoma-Innovator": "pierre-fabre-content-BEMelanoma-Innovator-creator",
-    "/content-BEMelanoma-Science": "pierre-fabre-content-BEMelanoma-Science-creator",
-    "/content-BEMelanoma-Patient": "pierre-fabre-content-BEMelanoma-Patient-creator"
+    "/blog": f"{COMPANY_NAME_PREFIX}-blog-post-creator",
+    "/linkedin-post": f"{COMPANY_NAME_PREFIX}-linkedin-post-creator",
+    "/content-to-persona": f"{COMPANY_NAME_PREFIX}-content-to-persona-creator",
+    "/mail": f"{COMPANY_NAME_PREFIX}-mail-creator",
+    "/image": f"{COMPANY_NAME_PREFIX}-image-creator-prompt",
+    "/content-BEMelanoma-Innovator": f"{COMPANY_NAME_PREFIX}-content-BEMelanoma-Innovator-creator",
+    "/content-BEMelanoma-Science": f"{COMPANY_NAME_PREFIX}-content-BEMelanoma-Science-creator",
+    "/content-BEMelanoma-Patient": f"{COMPANY_NAME_PREFIX}-content-BEMelanoma-Patient-creator"
     }
 
     orquesta_key = command_to_key_map.get(command)
@@ -53,7 +55,7 @@ def handle_individual_command(command, command_text, channel_id, ts):
 def execute_orquesta_command(orquesta_key, command_text, channel_id, ts):
     try:
         inputs = get_orquesta_inputs(orquesta_key, command_text)
-        if orquesta_key == "pierre-fabre-image-creator-prompt":
+        if orquesta_key == f"{COMPANY_NAME_PREFIX}-image-creator-prompt":
             handle_image_creation(inputs, channel_id, ts)
         else:
             invoke_orquesta_and_post_message(orquesta_key, inputs, channel_id, ts)
@@ -66,14 +68,14 @@ def execute_orquesta_command(orquesta_key, command_text, channel_id, ts):
 def get_orquesta_inputs(orquesta_key, command_text):
     args = parse_command_arguments(command_text)
     command_to_inputs = {
-        "pierre-fabre-blog-post-creator": {"content": args[1], "keywords": args[0]} if len(args) >= 2 else None,
-        "pierre-fabre-linkedin-post-creator": {"user": args[0], "content": args[1]} if len(args) >= 2 else None,
-        "pierre-fabre-content-to-persona-creator": {"content": command_text},
-        "pierre-fabre-mail-creator": {"to": args[0], "from_": args[1], "content": args[2]} if len(args) >= 3 else None,
-        "pierre-fabre-image-creator-prompt": {"goal_of_image": command_text},
-        "pierre-fabre-content-BEMelanoma-Innovator-creator": {"content": command_text},
-        "pierre-fabre-content-BEMelanoma-Science-driven-creator": {"content": command_text},
-        "pierre-fabre-content-BEMelanoma-Patient-oriented-creator": {"content": command_text},
+        f"{COMPANY_NAME_PREFIX}-blog-post-creator": {"content": args[1], "keywords": args[0]} if len(args) >= 2 else None,
+        f"{COMPANY_NAME_PREFIX}-linkedin-post-creator": {"user": args[0], "content": args[1]} if len(args) >= 2 else None,
+        f"{COMPANY_NAME_PREFIX}-content-to-persona-creator": {"content": command_text},
+        f"{COMPANY_NAME_PREFIX}-mail-creator": {"to": args[0], "from_": args[1], "content": args[2]} if len(args) >= 3 else None,
+        f"{COMPANY_NAME_PREFIX}-image-creator-prompt": {"goal_of_image": command_text},
+        f"{COMPANY_NAME_PREFIX}-content-BEMelanoma-Innovator-creator": {"content": command_text},
+        f"{COMPANY_NAME_PREFIX}-content-BEMelanoma-Science-driven-creator": {"content": command_text},
+        f"{COMPANY_NAME_PREFIX}-content-BEMelanoma-Patient-oriented-creator": {"content": command_text},
     }
 
     if orquesta_key not in command_to_inputs:
@@ -85,10 +87,10 @@ def get_orquesta_inputs(orquesta_key, command_text):
     return command_to_inputs[orquesta_key]
 
 def handle_image_creation(inputs, channel_id, ts):
-    prompt_deployment = orquesta_client_module.client.deployments.invoke(key="pierre-fabre-image-creator-prompt", inputs=inputs)
+    prompt_deployment = orquesta_client_module.client.deployments.invoke(key=f"{COMPANY_NAME_PREFIX}-image-creator-prompt", inputs=inputs)
     if prompt_deployment.choices and prompt_deployment.choices[0].message:
         image_deployment = orquesta_client_module.client.deployments.invoke(
-            key="pierre-fabre-image-creator",
+            key=f"{COMPANY_NAME_PREFIX}-image-creator",
             inputs={"prompt": prompt_deployment.choices[0].message.content}
         )
         image_url = image_deployment.choices[0].message.url
@@ -127,9 +129,9 @@ def handle_content_BEMelanoma_All(command_text, channel_id, ts):
 
     # Define the keys for the three different personas
     persona_keys = {
-        "content-BEMelanoma-Innovator": "pierre-fabre-content-BEMelanoma-Innovator-creator",
-        "content-BEMelanoma-Science": "pierre-fabre-content-BEMelanoma-Science-creator",
-        "content-BEMelanoma-Patient": "pierre-fabre-content-BEMelanoma-Patient-creator"
+        "content-BEMelanoma-Innovator": f"{COMPANY_NAME_PREFIX}-content-BEMelanoma-Innovator-creator",
+        "content-BEMelanoma-Science": f"{COMPANY_NAME_PREFIX}-content-BEMelanoma-Science-creator",
+        "content-BEMelanoma-Patient": f"{COMPANY_NAME_PREFIX}-content-BEMelanoma-Patient-creator"
     }
 
     # Initialize an empty list to store the results
