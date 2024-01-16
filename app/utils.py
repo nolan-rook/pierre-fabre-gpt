@@ -82,10 +82,14 @@ def process_file_content(file_content, event):
 
 def extract_text_from_pdf(file_content):
     try:
-        reader = PdfReader('temp_file.pdf')
+        # Convert bytes content to a file-like object
+        file_stream = BytesIO(file_content)
+        reader = PdfReader(file_stream)
         text = ""
         for page in reader.pages:
-            text += page.extract_text()
+            page_text = page.extract_text()
+            if page_text:  # Ensure there is text on the page before adding it
+                text += page_text
         return text
     except Exception as e:
         logging.error(f"Error extracting text from PDF: {e}")
