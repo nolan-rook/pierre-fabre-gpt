@@ -2,8 +2,7 @@ from flask import request, jsonify
 from app.utils import (
     parse_command_arguments,
     post_error_message,
-    process_file_content,  # Import the process_file_content function
-    download_file  # Import the download_file function
+    handle_file  # Import the handle_file function
 )
 from app import slack_client as slack_client_module
 from app import orquesta_client as orquesta_client_module
