@@ -29,7 +29,8 @@ def slack_commands():
 
 def handle_all_personas_command(command_text, channel_id, ts):
     immediate_response = f"Processing your request for all personas with content: '{command_text}'"
-    handle_content_BEMelanoma_All(command_text, channel_id, ts)
+    # Start a new thread to handle the command without blocking the immediate response
+    threading.Thread(target=handle_content_BEMelanoma_All, args=(command_text, channel_id, ts)).start()
     return jsonify({'text': immediate_response}), 200
 
 def handle_individual_command(command, command_text, channel_id, ts):
@@ -147,7 +148,7 @@ def handle_content_BEMelanoma_All(command_text, channel_id, ts):
             )
 
             # Append the result to the results list
-            result_text = f"Persona {persona}n{deployment.choices[0].message.content}"
+            result_text = f"Persona {persona}: \n {deployment.choices[0].message.content}"
             results.append(result_text)
         except Exception as e:
             # Log the exception for debugging
