@@ -172,4 +172,12 @@ def query_orquesta(event, prompt_user, text_content):
         thread_ts=event['ts'],  # Ensure this is the original message timestamp
         text=deployment.choices[0].message.content
     )
-    
+
+def handle_all_file(file_info):
+    text_content = None  # Initialize text_content
+    try:
+        file_content = file_info.get('url_private_download').read()  # Read file content
+        text_content = process_file_content(file_content, file_info)  # Get text_content from the file
+    except Exception as e:
+        logging.error(f"Error processing file: {e}")
+    return text_content  # Return the extracted text content

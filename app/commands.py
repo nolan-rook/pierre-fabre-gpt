@@ -1,7 +1,8 @@
 from flask import request, jsonify
 from app.utils import (
     parse_command_arguments,
-    post_error_message
+    post_error_message,
+    handle_all_file
 )
 from app import slack_client as slack_client_module
 from app import orquesta_client as orquesta_client_module
@@ -19,14 +20,27 @@ def slack_commands():
     command = data.get('command')
     channel_id = data.get('channel_id')
     ts = data.get('ts')
+    files = request.files.getlist('file')  # Get file attachments
 
     logging.info(f"Received command '{command}' with text: {command_text}")
 
-    if command == "/content-BEMelanoma-All": 
+    # Process file attachments if present
+    if files:
+        for file in files:
+            file_info = {
+                'id': file.filename,
+                'url_private_download': file.stream,
+                'filetype': file.content_type.split('/')[-1]  # Extract filetype from content_type
+            }
+            file_text_content = handle_file(file_info)  # Process the file and extract text
+            if file_text_content:
+                command_text += "File: " + file_text_content  # Append the text content from the file to the command_text
+                break  # Use the text from the first file that contains text
+
+    if command == "/content-BEMelanoma-All":
         return handle_all_personas_command(command_text, channel_id, ts)
 
     return handle_individual_command(command, command_text, channel_id, ts)
-
 def handle_all_personas_command(command_text, channel_id, ts):
     immediate_response = f"Processing your request for all personas with content: '{command_text}'"
     # Start a new thread to handle the command without blocking the immediate response
